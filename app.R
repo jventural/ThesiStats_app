@@ -1,4 +1,4 @@
-showNotification("Tablas calculadas exitosamente!", duration = 3)# Cargar librerías necesarias
+# Cargar librerías necesarias
 library(shiny)
 library(shinydashboard)
 library(DT)
