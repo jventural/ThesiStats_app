@@ -201,7 +201,21 @@ ui <- dashboardPage(
                   br(),
                   downloadButton("download_normality_table", "Descargar Normalidad (Excel)", class = "btn-success")
                 )
+              ),
+
+              # — Normalidad Multivariada —
+              fluidRow(
+                box(
+                  title = "Normalidad Multivariada",
+                  status = "info", solidHeader = TRUE, width = 12,
+                  plotOutput("multivariate_plot", height = "500px"),
+                  br(),
+                  downloadButton("download_multivariate_plot",
+                                 "Descargar Gráfico Multivariada (JPG)",
+                                 class = "btn-success")
+                )
               )
+
       ),
 
       # Tab 5: Gráficos
@@ -487,25 +501,6 @@ server <- function(input, output, session) {
     }
   })
 
-  # Botones de seleccionar/limpiar todas - Categóricas
-  observeEvent(input$select_all_categorical, {
-    req(values$data)
-    character_vars <- names(values$data)[sapply(values$data, function(x) is.character(x) || is.factor(x))]
-    values$selected_vars_categorical <- character_vars
-  })
-
-  observeEvent(input$clear_all_categorical, {
-    values$selected_vars_categorical <- character(0)
-  })
-  observeEvent(input$normality_var_click, {
-    var_name <- input$normality_var_click
-    if (var_name %in% values$selected_vars_normality) {
-      values$selected_vars_normality <- setdiff(values$selected_vars_normality, var_name)
-    } else {
-      values$selected_vars_normality <- c(values$selected_vars_normality, var_name)
-    }
-  })
-
   # Manejo de clics en variables - Gráficos
   observeEvent(input$plots_var_click, {
     var_name <- input$plots_var_click
@@ -516,6 +511,18 @@ server <- function(input, output, session) {
     }
   })
 
+  # UI: botones de variables para tablas
+  output$variable_buttons_tables <- renderUI({
+    req(values$data)
+    numeric_vars <- names(values$data)[sapply(values$data, is.numeric)]
+    # ← Aquí el tercer argumento debe ser "tables"
+    create_variable_buttons(
+      numeric_vars,
+      values$selected_vars_tables,
+      "tables"
+    )
+  })
+
   # Manejo de clics en variables - Tablas
   observeEvent(input$tables_var_click, {
     var_name <- input$tables_var_click
@@ -523,6 +530,26 @@ server <- function(input, output, session) {
       values$selected_vars_tables <- setdiff(values$selected_vars_tables, var_name)
     } else {
       values$selected_vars_tables <- c(values$selected_vars_tables, var_name)
+    }
+  })
+
+  # Botones de seleccionar/limpiar todas - Categóricas
+  observeEvent(input$select_all_categorical, {
+    req(values$data)
+    character_vars <- names(values$data)[sapply(values$data, function(x) is.character(x) || is.factor(x))]
+    values$selected_vars_categorical <- character_vars
+  })
+
+  observeEvent(input$clear_all_categorical, {
+    values$selected_vars_categorical <- character(0)
+  })
+
+  observeEvent(input$normality_var_click, {
+    var_name <- input$normality_var_click
+    if (var_name %in% values$selected_vars_normality) {
+      values$selected_vars_normality <- setdiff(values$selected_vars_normality, var_name)
+    } else {
+      values$selected_vars_normality <- c(values$selected_vars_normality, var_name)
     }
   })
 
@@ -572,6 +599,8 @@ server <- function(input, output, session) {
   output$selected_count_tables <- renderText({
     paste0("(", length(values$selected_vars_tables), " variables)")
   })
+
+  # Cálculo de porcentajes
   observeEvent(input$calculate_percentages, {
     req(values$data, values$selected_vars_categorical)
     values$percentage_results <- calcular_porcentajes(values$data, values$selected_vars_categorical)
@@ -602,18 +631,53 @@ server <- function(input, output, session) {
     })
   })
 
-  # Pruebas de normalidad
+  # Pruebas de normalidad univariada
   observeEvent(input$test_normality, {
     req(values$data, values$selected_vars_normality)
     values$normality_results <- normality_test_SW(values$data, values$selected_vars_normality)
     showNotification("Pruebas de normalidad completadas!", duration = 3)
   })
 
-  # Output: resultados de normalidad
+  # Output: resultados de normalidad univariada
   output$normality_results <- DT::renderDataTable({
     req(values$normality_results)
     DT::datatable(values$normality_results, options = list(scrollX = TRUE))
   })
+
+  # --- Normalidad multivariada ---
+  output$multivariate_plot <- renderPlot({
+    req(values$data, values$selected_vars_normality)
+    df_sel <- values$data %>% select(all_of(values$selected_vars_normality))
+    p2 <- Multivariate_plot(
+      df_sel,
+      xmin = 15, xmax = 18,
+      ymin = 5,  ymax = 7
+    )
+    print(p2)
+  })
+
+  output$download_multivariate_plot <- downloadHandler(
+    filename = function() {
+      paste0("Normalidad_Multivariada_", Sys.Date(), ".jpg")
+    },
+    content = function(file) {
+      req(values$data, values$selected_vars_normality)
+      df_sel <- values$data %>% select(all_of(values$selected_vars_normality))
+      p2 <- Multivariate_plot(
+        df_sel,
+        xmin = 15, xmax = 18,
+        ymin = 5,  ymax = 7
+      )
+      ggsave(
+        filename = file,
+        plot     = p2,
+        height   = 5,
+        width    = 8.5,
+        dpi      = 600,
+        device   = "jpeg"
+      )
+    }
+  )
 
   # Gráficos
   output$boxplots <- renderPlot({
@@ -817,3 +881,4 @@ server <- function(input, output, session) {
 
 # Ejecutar la aplicación
 shinyApp(ui = ui, server = server)
+
