@@ -573,8 +573,8 @@ server <- function(input, output, session) {
     paste0("(", length(values$selected_vars_tables), " variables)")
   })
   observeEvent(input$calculate_percentages, {
-    req(values$data, input$selected_categorical)
-    values$percentage_results <- calcular_porcentajes(values$data, input$selected_categorical)
+    req(values$data, values$selected_vars_categorical)
+    values$percentage_results <- calcular_porcentajes(values$data, values$selected_vars_categorical)
     showNotification("Porcentajes calculados!", duration = 3)
   })
 
@@ -683,11 +683,12 @@ server <- function(input, output, session) {
     if (!is.null(values$correlation_results$correlation)) {
       cor_matrix <- values$correlation_results$correlation
 
-      # Asegurar que sea una matriz numérica
+      # Asegurar que sea una matriz
       if (is.matrix(cor_matrix) || is.data.frame(cor_matrix)) {
         cor_matrix <- as.matrix(cor_matrix)
-        cor_matrix <- round(cor_matrix, 3)
 
+        if (all(sapply(cor_matrix, is.numeric))) {
+          cor_matrix <- round(cor_matrix, 3)}
         # Convertir a data.frame con nombres apropiados
         cor_df <- data.frame(
           Variable = rownames(cor_matrix),
