@@ -1657,7 +1657,14 @@ dashboard_ui <- dashboardPage(
                   title = "Análisis de Potencia", status = "primary", solidHeader = TRUE, width = 12,
                   tags$div(
                     style = "font-size: 1.35rem;",
-                    numericInput("effect_size", "Tamaño del efecto (r):", value = 0.27, min = 0, max = 1, step = 0.01)
+                    numericInput("effect_size", "Tamaño del efecto (r):", value = 0.27, min = 0, max = 1, step = 0.01),
+                    tags$div(
+                      style = "background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 10px; margin-top: 8px; margin-bottom: 15px; font-size: 1.1rem;",
+                      tags$strong("Importante:", style = "color: #856404;"),
+                      tags$span(" Ingrese siempre el ", style = "color: #856404;"),
+                      tags$strong("valor absoluto", style = "color: #856404;"),
+                      tags$span(" de r (entre 0 y 1). El signo de la correlación se especifica con la 'Hipótesis alternativa'.", style = "color: #856404;")
+                    )
                   ),
                   tags$div(
                     style = "font-size: 1.35rem;",
@@ -1666,6 +1673,24 @@ dashboard_ui <- dashboardPage(
                   tags$div(
                     style = "font-size: 1.35rem;",
                     numericInput("alpha_level", "Nivel de significancia:", value = 0.05, min = 0, max = 1, step = 0.01)
+                  ),
+                  tags$div(
+                    style = "font-size: 1.35rem;",
+                    selectInput("alternative", "Hipótesis alternativa:",
+                                choices = c("Bilateral (two-sided)" = "two.sided",
+                                            "Menor (less)" = "less",
+                                            "Mayor (greater)" = "greater"),
+                                selected = "two.sided"),
+                    tags$div(
+                      style = "background-color: #f0f9ff; border-left: 4px solid #3b82f6; padding: 15px; margin-top: 10px; margin-bottom: 15px; font-size: 1.2rem;",
+                      tags$strong("Interpretación de las opciones:", style = "color: #1e40af; display: block; margin-bottom: 8px;"),
+                      tags$ul(
+                        style = "margin: 5px 0; padding-left: 20px; color: #1e293b;",
+                        tags$li(tags$strong("Bilateral (two-sided):"), " La correlación es diferente de cero (puede ser positiva o negativa)."),
+                        tags$li(tags$strong("Mayor (greater):"), " La correlación es mayor que cero (correlación positiva)."),
+                        tags$li(tags$strong("Menor (less):"), " La correlación es menor que cero (correlación negativa).")
+                      )
+                    )
                   ),
                   actionButton("calculate_power", "Calcular Potencia", class = "btn-primary"),
                   hr(),
@@ -2664,21 +2689,63 @@ server <- function(input, output, session) {
   
   # Cálculo de potencia
   observeEvent(input$calculate_power, {
-    result <- pwr.r.test(r = input$effect_size,
-                         power = input$power_level,
-                         sig.level = input$alpha_level,
-                         alternative = "two.sided")
-    
-    values$power_results <- result
-    
-    output$power_results <- renderPrint({
-      # Formatear salida con 2 decimales
-      cat("     Approximate correlation power calculation (arcsine transformation)\n\n")
-      cat(sprintf("              n = %.2f\n", result$n))
-      cat(sprintf("              r = %.2f\n", result$r))
-      cat(sprintf("      sig.level = %.2f\n", result$sig.level))
-      cat(sprintf("          power = %.2f\n", result$power))
-      cat(sprintf("    alternative = %s\n", result$alternative))
+    # Validar parámetros
+    if (is.null(input$effect_size) || is.null(input$power_level) || is.null(input$alpha_level)) {
+      showNotification("Por favor, ingresa todos los parámetros requeridos.", type = "error", duration = 5)
+      return()
+    }
+
+    # Obtener valor absoluto para validaciones
+    r_abs <- abs(input$effect_size)
+
+    # Validar rangos
+    if (r_abs <= 0 || r_abs >= 1) {
+      showNotification("El tamaño del efecto (r) debe estar entre 0 y 1 (exclusivo).", type = "error", duration = 5)
+      return()
+    }
+
+    if (input$power_level <= 0 || input$power_level >= 1) {
+      showNotification("La potencia debe estar entre 0 y 1 (exclusivo).", type = "error", duration = 5)
+      return()
+    }
+
+    if (input$alpha_level <= 0 || input$alpha_level >= 1) {
+      showNotification("El nivel de significancia debe estar entre 0 y 1 (exclusivo).", type = "error", duration = 5)
+      return()
+    }
+
+    # Ajustar el signo de r según la hipótesis alternativa
+    # - "less" requiere valor negativo
+    # - "greater" y "two.sided" requieren valor positivo
+    r_value <- if (input$alternative == "less") {
+      -r_abs  # Usar valor negativo para "less"
+    } else {
+      r_abs   # Usar valor positivo para "greater" y "two.sided"
+    }
+
+    # Calcular potencia con manejo de errores
+    tryCatch({
+      result <- pwr.r.test(r = r_value,
+                           power = input$power_level,
+                           sig.level = input$alpha_level,
+                           alternative = input$alternative)
+
+      values$power_results <- result
+
+      output$power_results <- renderPrint({
+        # Formatear salida con 2 decimales
+        cat("     Approximate correlation power calculation (arcsine transformation)\n\n")
+        cat(sprintf("              n = %.2f\n", result$n))
+        cat(sprintf("              r = %.2f\n", result$r))
+        cat(sprintf("      sig.level = %.2f\n", result$sig.level))
+        cat(sprintf("          power = %.2f\n", result$power))
+        cat(sprintf("    alternative = %s\n", result$alternative))
+      })
+
+      showNotification("Cálculo de potencia completado exitosamente!", type = "message", duration = 3)
+
+    }, error = function(e) {
+      showNotification(paste("Error en el cálculo de potencia:", e$message), type = "error", duration = 8)
     })
   })
   
@@ -3339,8 +3406,8 @@ server <- function(input, output, session) {
       
       # 3. Análisis de potencia
       power_info <- if (!is.null(values$power_results)) {
-        sprintf("Tamaño de efecto (r) = %.2f\nPotencia = %.2f\nAlfa = %.2f\nN mínimo requerido = %d\nN actual = %d",
-                input$effect_size, input$power_level, input$alpha_level,
+        sprintf("Tamaño de efecto (r) = %.2f\nPotencia = %.2f\nAlfa = %.2f\nHipótesis alternativa = %s\nN mínimo requerido = %d\nN actual = %d",
+                input$effect_size, input$power_level, input$alpha_level, input$alternative,
                 ceiling(values$power_results$n), nrow(values$data))
       } else "No disponible"
       
@@ -3433,7 +3500,7 @@ server <- function(input, output, session) {
           "**Método**",
           "",
           "**Participantes**",
-          "Escribe un párrafo descriptivo que incluya: número total de participantes, distribución por sexo, rango y estadísticos de edad (M, DE). Integra el análisis de potencia en el MISMO párrafo mencionando: tamaño de efecto observado, potencia, alfa, N mínimo requerido y conclusión sobre adecuación muestral. Si hay datos adicionales (ej. tiempo en redes), descríbelos. Finaliza con criterios de inclusión. Incluye citas pertinentes (ej. paquete 'pwr').",
+          "Escribe un párrafo descriptivo que incluya: número total de participantes, distribución por sexo, rango y estadísticos de edad (M, DE). Integra el análisis de potencia en el MISMO párrafo mencionando: tamaño de efecto observado, potencia, alfa, hipótesis alternativa (two-sided/bilateral, greater/mayor que cero, o less/menor que cero), N mínimo requerido y conclusión sobre adecuación muestral. Si hay datos adicionales (ej. tiempo en redes), descríbelos. Finaliza con criterios de inclusión. Incluye citas pertinentes (ej. paquete 'pwr').",
           "",
           "**Análisis de datos**",
           "Escribe 1-2 párrafos describiendo: (1) Software usado con cita, (2) Prueba de normalidad univariada con cita y mención al 'Apéndice A', (3) Identificación de atípicos con diagramas de caja y mención al 'Apéndice B', (4) Normalidad multivariada con mención al 'Apéndice C', (5) Justificación de métodos robustos si hay desviaciones (ej. correlación winsorizada) con citas, (6) Criterios de interpretación de tamaños de efecto según Cohen (1988): pequeños (r ≥ .10, d ≥ 0.20), medianos (r ≥ .30, d ≥ 0.50) y grandes (r ≥ .50, d ≥ 0.80). Usa nomenclatura: M, DE, rw, d, ω, g2, α.",
@@ -3492,7 +3559,7 @@ server <- function(input, output, session) {
           "**Method**",
           "",
           "**Participants**",
-          "Write a descriptive paragraph including: total number of participants, sex distribution, age range and statistics (M, SD). Integrate power analysis in the SAME paragraph mentioning: observed effect size, power, alpha, minimum required N, and conclusion about sample adequacy. If additional data exists (e.g., social media time), describe it. End with inclusion criteria. Include relevant citations (e.g., 'pwr' package).",
+          "Write a descriptive paragraph including: total number of participants, sex distribution, age range and statistics (M, SD). Integrate power analysis in the SAME paragraph mentioning: observed effect size, power, alpha, alternative hypothesis (two-sided/bilateral, greater/greater than zero, or less/less than zero), minimum required N, and conclusion about sample adequacy. If additional data exists (e.g., social media time), describe it. End with inclusion criteria. Include relevant citations (e.g., 'pwr' package).",
           "",
           "**Data Analysis**",
           "Write 1-2 paragraphs describing: (1) Software used with citation, (2) Univariate normality test with citation and mention of 'Appendix A', (3) Outlier identification with boxplots and mention of 'Appendix B', (4) Multivariate normality with mention of 'Appendix C', (5) Justification of robust methods if deviations exist (e.g., winsorized correlation) with citations, (6) Effect size interpretation criteria according to Cohen (1988): small (r ≥ .10, d ≥ 0.20), medium (r ≥ .30, d ≥ 0.50), and large (r ≥ .50, d ≥ 0.80). Use nomenclature: M, SD, rw, d, ω, g2, α.",
