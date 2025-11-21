@@ -2323,10 +2323,10 @@ server <- function(input, output, session) {
   # Descargar archivo de texto de ejemplo
   output$download_sample_text <- downloadHandler(
     filename = function() {
-      "Texto_Prueba.txt"
+      "Estructura_tests.txt"
     },
     content = function(file) {
-      file.copy("Texto_Prueba.txt", file)
+      file.copy("Estructura_tests.txt", file)
     }
   )
   

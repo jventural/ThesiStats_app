@@ -1,0 +1,8 @@
+Dependencia emocional
+EDS_Dim1: EDS9, EDS11, EDS6, EDS7, EDS10
+EDS_Dim2: EDS5, EDS4, EDS2
+EDS_Dim3: EDS1, EDS3, EDS8, EDS12, EDS10, EDS7
+Miedo a la soledad
+BSFL_Dim1: BSFL2, BSFL3, BSFL1, BSFL5
+Bienestar general
+WHO_Dim1: WHO2, WHO1, WHO3, WHO4, WHO5
