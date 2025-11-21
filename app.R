@@ -30,7 +30,9 @@ install_if_missing <- function(packages) {
   new_packages <- packages[!(packages %in% installed.packages()[,"Package"])]
   if(length(new_packages)) {
     message("Instalando paquetes faltantes: ", paste(new_packages, collapse = ", "))
-    install.packages(new_packages, dependencies = TRUE, repos = "https://cloud.r-project.org")
+    # Solo instalar dependencias obligatorias (Imports, Depends, LinkingTo)
+    # NO instalar Suggests para evitar paquetes pesados como Hmisc
+    install.packages(new_packages, dependencies = c("Depends", "Imports", "LinkingTo"), repos = "https://cloud.r-project.org")
   }
 }
 
