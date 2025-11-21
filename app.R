@@ -1661,9 +1661,9 @@ dashboard_ui <- dashboardPage(
                     tags$div(
                       style = "background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 10px; margin-top: 8px; margin-bottom: 15px; font-size: 1.1rem;",
                       tags$strong("Importante:", style = "color: #856404;"),
-                      tags$span(" Ingrese siempre el ", style = "color: #856404;"),
-                      tags$strong("valor absoluto", style = "color: #856404;"),
-                      tags$span(" de r (entre 0 y 1). El signo de la correlación se especifica con la 'Hipótesis alternativa'.", style = "color: #856404;")
+                      tags$span(" Ingrese siempre un ", style = "color: #856404;"),
+                      tags$strong("valor positivo", style = "color: #856404;"),
+                      tags$span(" (entre 0 y 1). El sistema ajustará automáticamente el signo según la hipótesis alternativa seleccionada (para 'less' usará valor negativo internamente).", style = "color: #856404;")
                     )
                   ),
                   tags$div(
