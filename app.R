@@ -2313,10 +2313,10 @@ server <- function(input, output, session) {
   # Descargar archivo de datos de ejemplo (Excel)
   output$download_sample_data <- downloadHandler(
     filename = function() {
-      "Data de prueba.xlsx"
+      "Data_de_prueba.xlsx"
     },
     content = function(file) {
-      file.copy("Data de prueba.xlsx", file)
+      file.copy("Data_de_prueba.xlsx", file)
     }
   )
   
